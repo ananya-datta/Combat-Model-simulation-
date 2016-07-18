@@ -1,0 +1,572 @@
+breed [people1 person] ;;red force
+breed [people2 person] ;;blue force
+breed [trees tree]
+breed [redblt bullet] ;;red bullet
+breed [blueblt bullet] ;;blue bullet
+
+turtles-own [
+energy
+]
+
+globals [
+ inred
+ deadred
+ redtemp
+
+ inblue
+ deadblue
+ bluetemp
+
+ deathred
+ deathblue
+ totred
+ totblue
+ redbltfire
+ bluebltfire
+ redprobhit
+ blueprobhit
+
+ initials
+
+ list1
+ list2
+ list3
+ list4
+ list5
+ list6
+ list7
+ list8 ;;not used
+ list9 ;;not used
+]
+
+extensions [csv r]
+
+
+to setup-patches          ;; patch for colouring ground
+  ask patches [set pcolor 65]
+end
+
+to setup
+  set deathred 0
+  set deathblue 0
+  set redbltfire 0
+  set bluebltfire 0
+  set initials 1
+
+  if equations = "nonlinear form of lanchester law"
+  [setup1]
+  if equations = "lotka-volterra"
+  [setup2]
+end
+
+to go
+  if ticks >= number-of-days-simulate [stop]
+  if not any? people1 [stop]
+  if not any? people2 [stop]
+
+  if equations = "nonlinear form of lanchester law"
+  [go1]
+  if equations = "lotka-volterra"
+  [go2]
+end
+
+
+to clear
+  clear-all
+end
+
+
+to kill-people1
+ let a one-of people1-here
+ if a != nobody
+ [ask a [die] set deathred deathred + 1]
+end
+
+to kill-people2
+ let a one-of people2-here
+ if a != nobody
+ [ask a [die] set deathblue deathblue + 1]
+end
+
+
+
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;;--------------------------------------------------------------------LANCHESTER EQUATION CODE-----------------------------------------------------------------------------------------
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+to setup1
+   clear-all
+   reset-ticks
+
+
+   ask patches with [pycor <= random water-area / 4 and pycor >= random water-area / -4 and pxcor <= random water-area / 4 and pxcor >= random water-area / -4]
+   [ set pcolor 84 ]
+
+   ask patches with [pxcor <= 20 and pxcor >= 19.95  and  pycor >= -20 and pycor <= 20 ]
+   [ set pcolor white]
+   ask patches with [pycor <= 20 and pycor >= 19.95  and  pxcor >= -20 and pxcor <= 20 ]
+   [ set pcolor white]
+   ask patches with [pxcor <= -19.95 and pxcor >= -20  and  pycor >= -20 and pycor <= 20 ]
+   [ set pcolor white]
+   ask patches with [pycor <= -19.95 and pycor >= -20  and  pxcor >= -20 and pxcor <= 20 ]
+   [ set pcolor white]
+
+   create-people1 initial-red  [set xcor -18
+                                set ycor random-ycor if[pcolor] of patch-ahead 1 = white [set ycor 0]
+                                set color red  set shape "person" set size 1 ] ;;pen-down ] ;;people1 red  force
+   create-people2 initial-blue [set xcor  18
+                                set ycor random-ycor if[pcolor] of patch-ahead 1 = white [set ycor 0]
+                                set color blue set shape "person" set size 1 ] ;;pen-down ] ;;people2 blue force
+   create-trees forest-density
+    [set xcor random-xcor
+     if[pcolor] of patch-ahead 5 = 84  [set xcor random-xcor  set ycor random-ycor]
+     set ycor random-ycor
+     if[pcolor] of patch-ahead 5 = 84  [set xcor random-xcor  set ycor random-ycor]
+     set color 52 set shape "tree" set size 2]
+
+       set list1 (list (count people1)) ;; list for r-extension
+       set list2 (list (count people2)) ;; list for r-extension
+       set list3 (list (deathred)) ;; list for r-extension
+       set list4 (list (deathblue)) ;; list for r-extension
+       set list5 (list ((initial-red - count people1 + 1) / (initial-blue - count people2 + 1))) ;; list for r-extension
+       set list6 (list (redbltfire)) ;; list for r-extension
+       set list7 (list (bluebltfire)) ;; list for r-extension
+
+end
+
+
+to go1
+  move2
+  move1
+
+   ;;if is-string? "C:\\Users\\ADT\\Desktop\\lanchester.csv"
+   ;;[
+   ;;if file-exists? "C:\\Users\\ADT\\Desktop\\lanchester.csv"
+   ;;[ file-delete "C:\\Users\\ADT\\Desktop\\lanchester.csv" ]
+   file-open "C:\\Users\\ADT\\Desktop\\lanchester.csv"
+   if initials <= 1 [ file-print csv:to-row  ["days" "red alive" "blue alive" "read dead" "blue dead" "blue:red damage" "red fired" "blue fired" "red got hit" "blue got hit" "red probability got hit" "blue probability got hit"] set initials 2 ]
+   file-print csv:to-row  (list (ticks + 1) nra nba deathreds deathblues damage redbulletfired bluebulletfired redgothit bluegothit rpgh bpgh)
+   file-close
+   set list1 (lput (count people1) list1) ;; list for r-extension
+   set list2 (lput (count people2) list2) ;; list for r-extension
+   set list3 (lput (deathred) list3) ;; list for r-extension
+   set list4 (lput (deathblue) list4) ;; list for r-extension
+   set list5 (lput ((initial-red - count people1 + 1) / (initial-blue - count people2 + 1)) list5) ;; list for r-extension
+   set list6 (lput (redbltfire) list6) ;; list for r-extension
+   set list7 (lput (bluebltfire) list7) ;; list for r-extension
+
+  tick
+
+   ;;]
+end
+
+
+to move1
+
+  ask people1 [
+    set heading random 270
+    if [pcolor] of patch-ahead 2 = 84
+    [ set heading heading + 180 ]
+    if [pcolor] of patch-ahead 2 = white
+    [ set heading heading + 90 ]
+      kill-people2
+      red-fire
+
+      forward 1
+     ]
+end
+
+to move2
+   ask people2 [
+    set heading random 360
+    if [pcolor] of patch-ahead 2 = 84
+    [ set heading heading + 180 ]
+    if [pcolor] of patch-ahead 2 = white
+    [ set heading heading + 180 ]
+      kill-people1
+      blue-fire
+      forward 1]
+
+end
+
+
+to red-fire
+
+if not any? redblt
+ [
+  ask people1
+    [
+      hatch-redblt 1
+      [set shape "bullet"
+        set heading 90
+        set color orange
+        set size 1
+        set redbltfire redbltfire + 1
+         ]
+     ]
+ ]
+    ask redblt[forward 0.1
+      let b one-of people2-here
+      let c one-of trees-here
+          if b != nobody
+          [set deathblue deathblue + 1 ask b [die] ask redblt[die] ]
+
+      ]
+
+end
+
+
+
+to blue-fire
+
+if not any? blueblt
+ [
+  ask people2
+    [
+      hatch-blueblt 1
+      [set shape "bullet"
+        set heading 270
+        set color yellow
+        set size 1
+        set bluebltfire bluebltfire + 1
+
+         ]
+     ]
+ ]
+    ask blueblt[forward 0.1
+      let b one-of people1-here
+      let c one-of trees-here
+          if b != nobody
+          [set deathred deathred + 1 ask b [die] ask blueblt[die] ]
+
+         ]
+
+end
+
+
+
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;;------------------------------------------------------------------------------LOTKA-VOLTERRA CODE------------------------------------------------------------------------------------
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+to setup2
+    clear-all
+   reset-ticks
+   ask patches with [pycor <= random water-area / 4 and pycor >= random water-area / -4 and pxcor <= random water-area / 4 and pxcor >= random water-area / -4]
+   [ set pcolor 84 ]
+
+   ask patches with [pxcor <= 20 and pxcor >= 19.95  and  pycor >= -20 and pycor <= 20 ]
+   [ set pcolor white]
+   ask patches with [pycor <= 20 and pycor >= 19.95  and  pxcor >= -20 and pxcor <= 20 ]
+   [ set pcolor white]
+   ask patches with [pxcor <= -19.95 and pxcor >= -20  and  pycor >= -20 and pycor <= 20 ]
+   [ set pcolor white]
+   ask patches with [pycor <= -19.95 and pycor >= -20  and  pxcor >= -20 and pxcor <= 20 ]
+   [ set pcolor white]
+
+   create-people1 initial-red  [set xcor -18
+                                set ycor random-ycor if[pcolor] of patch-ahead 1 = white [set ycor 0]
+                                set color red  set shape "person" set size 1 set energy 100] ;;pen-down ] ;;people1 red  force
+   create-people2 initial-blue [set xcor  18
+                                set ycor random-ycor if[pcolor] of patch-ahead 1 = white [set ycor 0]
+                                set color blue set shape "person" set size 1 set energy 100] ;;pen-down ] ;;people2 blue force
+   create-trees forest-density
+    [set xcor random-xcor
+     if[pcolor] of patch-ahead 5 = 84  [set xcor random-xcor  set ycor random-ycor]
+     set ycor random-ycor
+     if[pcolor] of patch-ahead 5 = 84  [set xcor random-xcor  set ycor random-ycor]
+     set color 52 set shape "tree" set size 2]
+
+    set inred initial-red
+    set redtemp 0
+    set deadred 0
+
+    set inblue initial-blue
+    set bluetemp 0
+    set deadblue 0
+
+    set totred initial-red
+    set totblue initial-blue
+
+    set redprobhit 0
+    set blueprobhit 0
+
+     set list1 (list (count people1)) ;; list for r-extension
+     set list2 (list (count people2)) ;; list for r-extension
+     set list3 (list (deathred)) ;; list for r-extension
+     set list4 (list (deathblue)) ;; list for r-extension
+     set list5 (list ((deathred + 1) / (deathblue + 1))) ;; list for r-extension
+     set list6 (list (redbltfire)) ;; list for r-extension
+     set list7 (list (bluebltfire)) ;; list for r-extension
+end
+
+
+to go2
+  move2a
+  move1a
+
+   file-open "C:\\Users\\ADT\\Desktop\\lotka_volterra.csv"
+   if initials <= 1 [ file-print csv:to-row  ["days" "total red soldier used" "total blue soldier used" "red alive" "blue alive" "read dead" "blue dead" "blue:red damage" "red fired" "blue fired" "red got hit" "blue got hit" "red probability got hit" "blue probability got hit" "total red soldied added" "total blue soldier added"] set initials 2 ]
+   file-print csv:to-row  (list (ticks + 1) numred numblue nra nba deathreds deathblues damage redbulletfired bluebulletfired redgothit bluegothit rpgh bpgh numredadd numblueadd)
+   file-close
+
+
+set list1 (lput (count people1) list1) ;; list for r-extension
+set list2 (lput (count people2) list2) ;; list for r-extension
+set list3 (lput (deathred) list3) ;; list for r-extension
+set list4 (lput (deathblue) list4) ;; list for r-extension
+set list5 (lput ((deathred + 1) / (deathblue + 1)) list5) ;; list for r-extension
+set list6 (lput (redbltfire) list6) ;; list for r-extension
+set list7 (lput (bluebltfire) list7) ;; list for r-extension
+
+  tick
+end
+
+
+to move1a
+
+  ask people1 [
+    set heading random 270
+    if [pcolor] of patch-ahead 2 = 84
+    [ set heading heading + 180 ]
+    if [pcolor] of patch-ahead 2 = white
+    [ set heading heading + 90 ]
+      red-death
+      red-add
+      kill-people2
+      red-fire1
+      forward 1
+     ]
+end
+
+to move2a
+   ask people2 [
+    set heading random 360
+    if [pcolor] of patch-ahead 2 = 84
+    [ set heading heading + 180 ]
+    if [pcolor] of patch-ahead 2 = white
+    [ set heading heading + 180 ]
+      blue-death
+      blue-add
+      kill-people1
+      blue-fire1
+      forward 1]
+
+end
+
+
+to red-fire1
+if not any? redblt
+ [
+  ask people1
+    [
+      hatch-redblt 1
+      [set shape "bullet"
+        set heading 90
+        set color orange
+        set size 1
+        set redbltfire redbltfire + 1
+         ]
+     ]
+ ]
+    ask redblt[forward 1
+      let b one-of people2-here
+          if b != nobody
+          [set blueprobhit blueprobhit + 1 set b energy - red-weapon-capacity ask redblt[die]]
+      ]
+end
+
+
+
+to blue-fire1
+if not any? blueblt
+ [
+  ask people2
+    [
+      hatch-blueblt 1
+      [set shape "bullet"
+        set heading 270
+        set color yellow
+        set size 1
+        set bluebltfire bluebltfire + 1
+         ]
+     ]
+ ]
+    ask blueblt[forward 1
+      let b one-of people1-here
+          if b != nobody
+          [set redprobhit redprobhit + 1 set b energy - blue-weapon-capacity ask blueblt[die]]
+         ]
+end
+
+
+to red-death
+  if energy <= 0 [die set deathred deathred + 1]
+end
+
+to blue-death
+  if energy <= 0 [die set deathblue deathblue + 1]
+end
+
+
+
+to red-add
+  set deadred inred - (count people1)
+  if redtemp + (deadred * add-for-every-red-solider-death) >= 1
+ [
+   hatch-people1 1
+ set redtemp redtemp + (deadred * add-for-every-red-solider-death) - 1
+ set inred count people1
+ set totred totred + 1
+ ]
+end
+
+
+
+to blue-add
+  set deadblue inblue - (count people2)
+  if bluetemp + (deadblue * add-for-every-blue-solider-death) >= 1
+ [
+   hatch-people2 1
+ set bluetemp bluetemp + (deadblue * add-for-every-blue-solider-death) - 1
+ set inblue count people2
+ set totblue totblue + 1
+ ]
+end
+
+
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;;------------------------------------------------------------------------------REPORT-CODE--------------------------------------------------------------------------------------------
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+to-report cir
+     report ( redtemp )
+end
+
+to-report nra
+  report ( count people1 )
+end
+
+to-report nba
+  report ( count people2 )
+end
+
+to-report rpgh
+  report( (redgothit * 100) / bluebulletfired)
+end
+
+to-report bpgh
+
+  report( (bluegothit * 100) / redbulletfired)
+end
+
+to-report damage
+  if equations = "nonlinear form of lanchester law"
+  [report (initial-red - count people1) / (initial-blue - count people2) ]
+  if equations = "lotka-volterra"
+  [report (deathred + 1) / (deathblue + 1) ]
+end
+
+to-report deathreds
+  report ( deathred )
+end
+
+to-report deathblues
+  report ( deathblue )
+end
+
+to-report numred
+if equations = "nonlinear form of lanchester law"
+[report ( initial-red )]
+if equations = "lotka-volterra"
+[report ( totred )]
+end
+
+to-report numblue
+if equations = "nonlinear form of lanchester law"
+[report ( initial-blue )]
+if equations = "lotka-volterra"
+[report ( totblue )]
+end
+
+to-report numredadd
+if equations = "lotka-volterra"
+[report totred - initial-red]
+end
+
+to-report numblueadd
+if equations = "lotka-volterra"
+[report totblue - initial-blue]
+end
+
+to-report redbulletfired
+  report ( redbltfire )
+end
+
+to-report bluebulletfired
+  report ( bluebltfire )
+end
+
+to-report redgothit
+if equations = "nonlinear form of lanchester law"
+[report ( deathred )]
+if equations = "lotka-volterra"
+[report ( redprobhit )]
+end
+
+to-report bluegothit
+if equations = "nonlinear form of lanchester law"
+[report ( deathblue )]
+if equations = "lotka-volterra"
+[report ( blueprobhit )]
+end
+
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;;--------------------------------------------------------------------------R-Extension------------------------------------------------------------------------------------------------
+;;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+to test
+  r:put "day" number-of-days-simulate
+  if select-graph = "red force"
+  [
+  r:put "life1" list1
+  r:eval "plot (life1 , type=\"l\",  col=\"red\", xlab=\"Days\", ylab=\"Red Soldier\", ylim=c(min(life1),max(life1)), xlim=c(0,max(day)) )" ;; people1 count
+  ]
+  if select-graph = "blue force"
+  [
+  r:put "life2" list2
+  r:eval "plot (life2 , type=\"l\",  col=\"blue\", xlab=\"Days\", ylab=\"Blue Soldier\", ylim=c(min(life2),max(life2)), xlim=c(0,max(day)) )" ;; people2 count
+  ]
+   if select-graph = "red deaths"
+  [
+  r:put "life3" list3
+  r:eval "plot (life3 , type=\"l\",  col=\"red\", xlab=\"Days\", ylab=\"Red Soldier Deaths\", ylim=c(min(life3),max(life3)), xlim=c(0,max(day)) )" ;; people1 death count
+  ]
+  if select-graph = "blue deaths"
+  [
+  r:put "life4" list4
+  r:eval "plot (life4 , type=\"l\",  col=\"blue\", xlab=\"Days\", ylab=\"Blue Soldier Deaths\", ylim=c(min(life4),max(life4)), xlim=c(0,max(day)) )" ;; people2 death count
+  ]
+  if select-graph = "damage ratio blue:red"
+  [
+  r:put "life5" list5
+  r:eval "plot (life5 , type=\"l\",  col=\"black\", xlab=\"Days\", ylab=\"Damage ratio\", ylim=c(0.5,max(life5)), xlim=c(0,max(day)) )" ;; Damage
+  ]
+   if select-graph = "red fired"
+  [
+  r:put "life6" list6
+  r:eval "plot (life6 , type=\"l\",  col=\"red\", xlab=\"Days\", ylab=\"Red bullet fired\", ylim=c(min(life6),max(life6)), xlim=c(0,max(day)) )" ;; red bullet fired
+  ]
+   if select-graph = "blue fired"
+  [
+  r:put "life7" list7
+  r:eval "plot (life7 , type=\"l\",  col=\"blue\", xlab=\"Days\", ylab=\"Blue bullet fired\", ylim=c(min(life7),max(life7)), xlim=c(0,max(day)) )" ;; blue bullet fired
+  ]
+
+end
+
+to dev-off
+  r:eval "dev.off()"
+end
